@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>航空運賃・空港使用料検索</title>
+  <style>
+    :root {
+      --bg: linear-gradient(135deg, #f3efe6 0%, #dce8e6 100%);
+      --panel: rgba(255, 255, 255, 0.88);
+      --ink: #1f2b2b;
+      --muted: #5e6a68;
+      --line: #c8d3cf;
+      --accent: #0f766e;
+      --accent-soft: #d6f2ee;
+      --warn: #f0fdf4;
+      --warn-line: #22c55e;
+      --shadow: 0 18px 50px rgba(24, 39, 39, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Yu Gothic UI", "Hiragino Kaku Gothic ProN", sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+
+    .shell {
+      width: min(1100px, calc(100% - 32px));
+      margin: 32px auto;
+      padding: 28px;
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      border-radius: 28px;
+      background: var(--panel);
+      backdrop-filter: blur(10px);
+      box-shadow: var(--shadow);
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(1.8rem, 4vw, 2.8rem);
+      letter-spacing: 0.02em;
+    }
+
+    .lead,
+    .hint,
+    .empty {
+      color: var(--muted);
+    }
+
+    .lead {
+      margin: 0 0 24px;
+      line-height: 1.7;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .field {
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.72);
+    }
+
+    .field label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 700;
+      font-size: 0.95rem;
+    }
+
+    select {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid #b6c7c2;
+      border-radius: 12px;
+      font-size: 1rem;
+      background: #fff;
+      color: var(--ink);
+    }
+
+    .results {
+      display: grid;
+      gap: 14px;
+      margin-top: 22px;
+    }
+
+    .result-card {
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 18px;
+      background: rgba(255, 255, 255, 0.92);
+    }
+
+    .result-card.cheapest {
+      border-color: var(--warn-line);
+      background: var(--warn);
+      box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.15);
+    }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 10px 16px;
+      align-items: baseline;
+    }
+
+    .airline {
+      font-size: 1.3rem;
+      font-weight: 800;
+    }
+
+    .pill {
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .stat {
+      padding: 14px;
+      border-radius: 16px;
+      background: #f7faf9;
+      border: 1px solid #dde7e3;
+    }
+
+    .stat .label {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    .stat .value {
+      font-size: 1.25rem;
+      font-weight: 800;
+    }
+
+    .note {
+      margin-top: 12px;
+      line-height: 1.7;
+      color: var(--muted);
+      font-size: 0.94rem;
+    }
+
+    .summary {
+      margin-top: 18px;
+      padding: 16px 18px;
+      border-radius: 18px;
+      background: #163130;
+      color: #f4fbfa;
+    }
+
+    .summary strong {
+      color: #91f2df;
+    }
+
+    .empty {
+      padding: 18px;
+      border: 1px dashed #aabbb6;
+      border-radius: 18px;
+      text-align: center;
+    }
+
+    .hint {
+      margin-top: 16px;
+      font-size: 0.92rem;
+      line-height: 1.7;
+    }
+
+    @media (max-width: 760px) {
+      .shell {
+        width: min(100% - 20px, 1100px);
+        margin: 10px auto;
+        padding: 18px;
+        border-radius: 22px;
+      }
+
+      .grid,
+      .stats {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <h1>航空運賃・空港使用料検索</h1>
+    <p class="lead">出発地と到着地を選ぶと、ANAとJALの運賃を並べて表示します。空港使用料は出発空港と到着空港の大人料金を片道合計に加算し、安い方を色付けします。</p>
+
+    <section class="grid">
+      <div class="field">
+        <label for="departure">出発地</label>
+        <select id="departure"></select>
+      </div>
+      <div class="field">
+        <label for="arrival">到着地</label>
+        <select id="arrival"></select>
+      </div>
+      <div class="field">
+        <label for="departureAirport">出発空港使用料の対象空港</label>
+        <select id="departureAirport"></select>
+      </div>
+      <div class="field">
+        <label for="arrivalAirport">到着空港</label>
+        <select id="arrivalAirport"></select>
+      </div>
+    </section>
+
+    <div id="results" class="results"></div>
+    <div id="summary" class="summary" hidden></div>
+      <p class="hint">注意: 運賃表は地名ベース、空港使用料表は空港ベースです。東京や大阪のように空港が複数ある地名は、実際に使う空港を選んでください。空港使用料の条件付き増額はラベルに併記しています。</p>
+  </main>
+
+  <script src="./app-data.js"></script>
+  <script>
+    const data = window.AIRPORT_APP_DATA;
+    const departureSelect = document.getElementById("departure");
+    const arrivalSelect = document.getElementById("arrival");
+    const departureAirportSelect = document.getElementById("departureAirport");
+    const arrivalAirportSelect = document.getElementById("arrivalAirport");
+    const resultsEl = document.getElementById("results");
+    const summaryEl = document.getElementById("summary");
+
+    const nameAliases = {
+      "沖縄": "沖縄(那覇)",
+      "中標津": "根室中標津",
+      "福江": "五島福江",
+      "萩・石見": "萩石見",
+    };
+
+    function normalizeName(name) {
+      return nameAliases[name] || name;
+    }
+
+    function routeKey(a, b) {
+      return [normalizeName(a), normalizeName(b)].sort().join("::");
+    }
+
+    function formatCurrency(value) {
+      return `${value.toLocaleString("ja-JP")}円`;
+    }
+
+    function buildOptions(select, values, placeholder) {
+      select.innerHTML = "";
+      const first = document.createElement("option");
+      first.value = "";
+      first.textContent = placeholder;
+      select.appendChild(first);
+      values.forEach((value) => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = value;
+        select.appendChild(option);
+      });
+    }
+
+    function setAirportOptions(select, location) {
+      const airports = data.locationAirportOptions[normalizeName(location)] || [];
+      select.innerHTML = "";
+      const defaultOption = document.createElement("option");
+      defaultOption.value = "";
+      defaultOption.textContent = airports.length ? "空港使用料なし / 不明" : "対象空港なし";
+      select.appendChild(defaultOption);
+      airports.forEach((airport) => {
+        const option = document.createElement("option");
+        option.value = airport;
+        option.textContent = airport;
+        select.appendChild(option);
+      });
+      if (airports.length === 1) {
+        select.value = airports[0];
+      }
+    }
+
+    function getFeeInfo(airport) {
+      return airport ? data.airportFees[airport] || null : null;
+    }
+
+    function getRouteRecord(airline, departure, arrival) {
+      const key = routeKey(departure, arrival);
+      return data.airlines[airline][key] || null;
+    }
+
+    function computeResult(airline, departure, arrival, departureAirport, arrivalAirport) {
+      const route = getRouteRecord(airline, departure, arrival);
+      if (!route) {
+        return null;
+      }
+      const departureFee = getFeeInfo(departureAirport);
+      const arrivalFee = getFeeInfo(arrivalAirport);
+      const total =
+        route.fare +
+        (departureFee ? departureFee.adult : 0) +
+        (arrivalFee ? arrivalFee.adult : 0);
+      return {
+        airline,
+        route,
+        departureFee,
+        arrivalFee,
+        total,
+      };
+    }
+
+    function renderResults() {
+      const departure = departureSelect.value;
+      const arrival = arrivalSelect.value;
+      resultsEl.innerHTML = "";
+      summaryEl.hidden = true;
+      summaryEl.textContent = "";
+
+      if (!departure || !arrival) {
+        resultsEl.innerHTML = '<div class="empty">出発地と到着地を選ぶと結果を表示します。</div>';
+        return;
+      }
+
+      if (departure === arrival) {
+        resultsEl.innerHTML = '<div class="empty">出発地と到着地は別の地点を選んでください。</div>';
+        return;
+      }
+
+      const departureAirport = departureAirportSelect.value;
+      const arrivalAirport = arrivalAirportSelect.value;
+      const results = ["ANA", "JAL"]
+        .map((airline) =>
+          computeResult(airline, departure, arrival, departureAirport, arrivalAirport)
+        )
+        .filter(Boolean);
+
+      if (!results.length) {
+        resultsEl.innerHTML = '<div class="empty">この組み合わせの運賃はPDF内で見つかりませんでした。</div>';
+        return;
+      }
+
+      const lowestTotal = Math.min(...results.map((item) => item.total));
+      results.forEach((item) => {
+        const card = document.createElement("section");
+        card.className = "result-card";
+        if (item.total === lowestTotal) {
+          card.classList.add("cheapest");
+        }
+
+        const departureFeeLabel = item.departureFee
+          ? item.departureFee.adultLabel
+          : "対象空港なし / 未選択";
+        const arrivalFeeLabel = item.arrivalFee
+          ? item.arrivalFee.adultLabel
+          : "対象空港なし / 未選択";
+        const via = item.route.via.length ? item.route.via.join(" / ") : "なし";
+
+        card.innerHTML = `
+          <div class="row">
+            <div class="airline">${item.airline}</div>
+            ${item.total === lowestTotal ? '<div class="pill">この条件で最安</div>' : ""}
+          </div>
+          <div class="stats">
+            <div class="stat">
+              <span class="label">運賃</span>
+              <span class="value">${formatCurrency(item.route.fare)}</span>
+            </div>
+            <div class="stat">
+              <span class="label">出発空港使用料</span>
+              <span class="value">${departureFeeLabel}</span>
+            </div>
+            <div class="stat">
+              <span class="label">到着空港使用料</span>
+              <span class="value">${arrivalFeeLabel}</span>
+            </div>
+            <div class="stat">
+              <span class="label">片道目安合計</span>
+              <span class="value">${formatCurrency(item.total)}</span>
+            </div>
+          </div>
+          <div class="note">経由地: ${via}</div>
+          <div class="note">選択空港: 出発 ${departureAirport || "未選択"} / 到着 ${arrivalAirport || "未選択"}</div>
+        `;
+        resultsEl.appendChild(card);
+      });
+
+      const cheapest = results.find((item) => item.total === lowestTotal);
+      const feeParts = [];
+      if (departureAirport) {
+        feeParts.push(`出発 ${departureAirport}`);
+      }
+      if (arrivalAirport) {
+        feeParts.push(`到着 ${arrivalAirport}`);
+      }
+      const feeText = feeParts.length ? `${feeParts.join(" / ")} の使用料を含む` : "空港使用料未選択";
+      summaryEl.hidden = false;
+      summaryEl.innerHTML = `<strong>${cheapest.airline}</strong> が最安です。${departure} → ${arrival} の片道目安合計は <strong>${formatCurrency(cheapest.total)}</strong> です。${feeText}。`;
+    }
+
+    buildOptions(departureSelect, data.locations, "出発地を選択");
+    buildOptions(arrivalSelect, data.locations, "到着地を選択");
+    setAirportOptions(departureAirportSelect, "");
+    setAirportOptions(arrivalAirportSelect, "");
+
+    departureSelect.addEventListener("change", () => {
+      setAirportOptions(departureAirportSelect, departureSelect.value);
+      renderResults();
+    });
+    arrivalSelect.addEventListener("change", () => {
+      setAirportOptions(arrivalAirportSelect, arrivalSelect.value);
+      renderResults();
+    });
+    departureAirportSelect.addEventListener("change", renderResults);
+    arrivalAirportSelect.addEventListener("change", renderResults);
+
+    resultsEl.innerHTML = '<div class="empty">出発地と到着地を選ぶと結果を表示します。</div>';
+  </script>
+</body>
+</html>
